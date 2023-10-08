@@ -20,7 +20,7 @@ from twilio.twiml.messaging_response import MessagingResponse
 
 
 def predict():
-    ticker = yf.Ticker("ALGO-ETH")
+    ticker = yf.Ticker("GAS-ETH")
     period = 30
     df = ticker.history(interval = "1d", period=f"{period}d")
     df = df[['Close']]
@@ -34,7 +34,7 @@ def predict():
         shutil.rmtree('images/')
     os.mkdir('images/')
 
-    model = load_model('weights-ALGO-ETH.h5')
+    model = load_model('weights-GAS-ETH.h5')
     time_step = 15
 
     x_input=dataset[len(dataset)-time_step:].reshape(1,-1)
@@ -80,54 +80,48 @@ def predict():
     last_original_days_value[0:time_step+1] = scaler.inverse_transform(dataset[len(dataset)-time_step:]).reshape(1,-1).tolist()[0]
     next_predicted_days_value[time_step+1:] = scaler.inverse_transform(np.array(lst_output).reshape(-1,1)).reshape(1,-1).tolist()[0]
 
-    names = cycle([f'Last {time_step} hours close price', f'Predicted next {pred_days} hours close price'])
-
     lstmdf=dataset.tolist()
     lstmdf.extend((np.array(lst_output).reshape(-1,1)).tolist())
     lstmdf=scaler.inverse_transform(lstmdf).reshape(1,-1).tolist()[0]
 
-    names = cycle(['Close price'])
 
-
-    fig = px.line(x=list(range(-period, pred_days)), y=lstmdf,labels={'value': 'Stock price','index': 'Timestamp'})
+    fig = px.line(x=list(range(-period, pred_days)), y=lstmdf,labels={'value': 'Gas price','index': 'Timestamp'})
     fig.add_vline(x=0, line_width=3, line_dash="dash", line_color="green")
-    fig.update_layout(title_text='Plotting whole closing stock price with prediction',
+    fig.update_layout(title_text='Plotting Ethereum Gas with prediction',
                       plot_bgcolor='white', font_size=15, font_color='black',legend_title_text='Stock')
 
-    fig.for_each_trace(lambda t: t.update(name = next(names)))
-
-    fig.update_xaxes(showgrid=False)
-    fig.update_yaxes(showgrid=False)
     fig.write_image("images/pred.png")
 
     return np.array(lstmdf)
 
-app = Flask(__name__)
+predict()
 
-account_sid = os.environ['TWILIO_ACCOUNT_SID']
-auth_token = os.environ['TWILIO_AUTH_TOKEN']
-client = Client(account_sid, auth_token)
+# app = Flask(__name__)
+
+# account_sid = os.environ['TWILIO_ACCOUNT_SID']
+# auth_token = os.environ['TWILIO_AUTH_TOKEN']
+# client = Client(account_sid, auth_token)
 
 
-@app.route('/uploads/<path:filename>')
-def download_file(filename):
-    return send_from_directory('images',
-                               filename, as_attachment=True)
+# @app.route('/uploads/<path:filename>')
+# def download_file(filename):
+#     return send_from_directory('images',
+#                                filename, as_attachment=True)
 
-@app.route("/sms", methods=['GET', 'POST'])
-def sms_reply():
+# @app.route("/sms", methods=['GET', 'POST'])
+# def sms_reply():
 
-    body = request.values.get('Body', None)
+#     body = request.values.get('Body', None)
 
-    if body == '!predict':
-        preds = predict()
-        message = client.messages \
-            .create(
-                 body=f'Predictions\n\n Best day for Algo to Eth: \n{np.argmax(preds)} days from now \n Conversion: {preds.max()} \n\nBest day for Eth to Algo: \n{np.argmin(preds)} days from now\n Conversion: {preds.min()}',
-                 from_='+18442608697',
-                 media_url='https://rich-gobbler-hopefully.ngrok-free.app/uploads/{}'.format('pred.png'),
-                 to='+18482189972'
-             )
+#     if body == '!predict':
+#         preds = predict()
+#         message = client.messages \
+#             .create(
+#                  body=f'Predictions\n\n Best day for Algo to Eth: \n{np.argmax(preds)} days from now \n Conversion: {preds.max()} \n\nBest day for Eth to Algo: \n{np.argmin(preds)} days from now\n Conversion: {preds.min()}',
+#                  from_='+18442608697',
+#                  media_url='https://rich-gobbler-hopefully.ngrok-free.app/uploads/{}'.format('pred.png'),
+#                  to='+18482189972'
+#              )
 
-if __name__ == "__main__":
-    app.run(port=8000, debug=False)
+# if __name__ == "__main__":
+#     app.run(port=8000, debug=False)
