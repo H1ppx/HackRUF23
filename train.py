@@ -18,7 +18,7 @@ from plotly.subplots import make_subplots
 
 import yfinance as yf
 
-BTC_Ticker = yf.Ticker("BTC-USD")
+BTC_Ticker = yf.Ticker("ETH-USD")
 df = BTC_Ticker.history(period="max")
 close_stock = df.copy().reset_index()
 print(close_stock.info())
@@ -66,7 +66,7 @@ model.add(LSTM(10,input_shape=(None,1),activation="relu"))
 model.add(Dense(1))
 model.compile(loss="mean_squared_error",optimizer="adam")
 
-history = model.fit(X_train,y_train,validation_data=(X_test,y_test),epochs=500,batch_size=32,verbose=1)
+history = model.fit(X_train,y_train,validation_data=(X_test,y_test),epochs=1000,batch_size=16,verbose=1)
 
 loss = history.history['loss']
 val_loss = history.history['val_loss']

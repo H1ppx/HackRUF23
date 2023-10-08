@@ -10,6 +10,10 @@ from sklearn.preprocessing import MinMaxScaler
 import os
 import shutil
 
+from flask import Flask, request, send_from_directory
+from twilio.twiml.messaging_response import MessagingResponse
+
+
 def predict():
     BTC_Ticker = yf.Ticker("BTC-USD")
     df = BTC_Ticker.history(interval = "1d", period="30d")
@@ -24,7 +28,7 @@ def predict():
         shutil.rmtree('images/')
     os.mkdir('images/')
 
-    model = load_model('weightsDays.h5')
+    model = load_model('weights-BTC.h5')
     time_step = 15
 
     x_input=dataset[len(dataset)-time_step:].reshape(1,-1)
@@ -34,7 +38,7 @@ def predict():
     n_steps=time_step
 
     i=0
-    pred_days = 30
+    pred_days = 15
     while(i<pred_days):
 
         if(len(temp_input)>time_step):
@@ -75,17 +79,21 @@ def predict():
         'next_predicted_days_value':next_predicted_days_value
     })
 
-    names = cycle(['Last 15 hours close price','Predicted next 30 hours close price'])
+    names = cycle([f'Last {time_step} hours close price', f'Predicted next {pred_days} hours close price'])
 
+    color_sequence = ['blue' if xi <= time_step else 'red' for xi in new_pred_plot.index]
+    print(color_sequence)
     fig = px.line(new_pred_plot,x=new_pred_plot.index, y=[new_pred_plot['last_original_days_value'],
                                                           new_pred_plot['next_predicted_days_value']],
-                  labels={'value': 'Stock price','index': 'Timestamp'})
-    fig.update_layout(title_text='Compare last 15 hours vs next 30 hours',
+                  labels={'value': 'Stock price','index': 'Timestamp'}, color=color_sequence)
+    fig.update_layout(title_text=f'Compare last {time_step} days vs next {pred_days} hours',
                       plot_bgcolor='white', font_size=15, font_color='black',legend_title_text='Close Price')
 
+
+
     fig.for_each_trace(lambda t:  t.update(name = next(names)))
-    fig.update_xaxes(showgrid=False)
-    fig.update_yaxes(showgrid=False)
+    fig.update_xaxes(showgrid=True)
+    fig.update_yaxes(showgrid=True)
     fig.write_image("images/pred.png")
 
     lstmdf=dataset.tolist()
@@ -105,3 +113,30 @@ def predict():
     fig.write_image("images/predWithHist.png")
 
 predict()
+
+# app = Flask(__name__)
+
+# @app.route('/uploads/<path:filename>')
+# def download_file(filename):
+#     return send_from_directory('images',
+#                                filename, as_attachment=True)
+
+# @app.route("/sms", methods=['GET', 'POST'])
+# def sms_reply():
+
+#     body = request.values.get('Body', None)
+
+#     response = MessagingResponse()
+
+#     # Determine the right reply for this message
+#     print(body)
+
+#     if body == '!predict':
+#         with response.message() as message:
+#             message.body = "{0}".format("Welcome to Mars.")
+#             message.media('https://rich-gobbler-hopefully.ngrok-free.app/uploads/{}'.format('pred.png'))
+
+#     return str(response)
+
+# if __name__ == "__main__":
+#     app.run(port=8000, debug=False)
