@@ -1,23 +1,13 @@
+import os
+import shutil
 import numpy as np
-import pandas as pd
 import yfinance as yf
 import plotly.express as px
 
-import os
 from twilio.rest import Client
-
-from itertools import cycle
 from keras.models import load_model
-from sklearn.preprocessing import MinMaxScaler
-
-import os
-import plotly.graph_objects as go
-
-import shutil
-
 from flask import Flask, request, send_from_directory
-from twilio.twiml.messaging_response import MessagingResponse
-
+from sklearn.preprocessing import MinMaxScaler
 
 def predict():
     ticker = yf.Ticker("GAS-ETH")
@@ -28,7 +18,6 @@ def predict():
     dataset = dataset.astype('float32')
     scaler=MinMaxScaler(feature_range=(0,1))
     dataset=scaler.fit_transform(np.array(dataset).reshape(-1,1))
-
 
     if os.path.exists('images/'):
         shutil.rmtree('images/')
@@ -94,34 +83,32 @@ def predict():
 
     return np.array(lstmdf)
 
-predict()
+app = Flask(__name__)
 
-# app = Flask(__name__)
-
-# account_sid = os.environ['TWILIO_ACCOUNT_SID']
-# auth_token = os.environ['TWILIO_AUTH_TOKEN']
-# client = Client(account_sid, auth_token)
+account_sid = os.environ['TWILIO_ACCOUNT_SID']
+auth_token = os.environ['TWILIO_AUTH_TOKEN']
+client = Client(account_sid, auth_token)
 
 
-# @app.route('/uploads/<path:filename>')
-# def download_file(filename):
-#     return send_from_directory('images',
-#                                filename, as_attachment=True)
+@app.route('/uploads/<path:filename>')
+def download_file(filename):
+    return send_from_directory('images',
+                               filename, as_attachment=True)
 
-# @app.route("/sms", methods=['GET', 'POST'])
-# def sms_reply():
+@app.route("/sms", methods=['GET', 'POST'])
+def sms_reply():
 
-#     body = request.values.get('Body', None)
+    body = request.values.get('Body', None)
 
-#     if body == '!predict':
-#         preds = predict()
-#         message = client.messages \
-#             .create(
-#                  body=f'Predictions\n\n Best day for Algo to Eth: \n{np.argmax(preds)} days from now \n Conversion: {preds.max()} \n\nBest day for Eth to Algo: \n{np.argmin(preds)} days from now\n Conversion: {preds.min()}',
-#                  from_='+18442608697',
-#                  media_url='https://rich-gobbler-hopefully.ngrok-free.app/uploads/{}'.format('pred.png'),
-#                  to='+18482189972'
-#              )
+    if body == '!predict':
+        preds = predict()
+        message = client.messages \
+            .create(
+                 body=f'Predictions\n\n Best day for Algo to Eth: \n{np.argmax(preds)} days from now \n Conversion: {preds.max()} \n\nBest day for Eth to Algo: \n{np.argmin(preds)} days from now\n Conversion: {preds.min()}',
+                 from_='+18442608697',
+                 media_url='https://rich-gobbler-hopefully.ngrok-free.app/uploads/{}'.format('pred.png'),
+                 to='+18482189972'
+             )
 
-# if __name__ == "__main__":
-#     app.run(port=8000, debug=False)
+if __name__ == "__main__":
+    app.run(port=8000, debug=False)
