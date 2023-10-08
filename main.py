@@ -3,6 +3,9 @@ import pandas as pd
 import yfinance as yf
 import plotly.express as px
 
+import os
+from twilio.rest import Client
+
 from itertools import cycle
 from keras.models import load_model
 from sklearn.preprocessing import MinMaxScaler
@@ -17,9 +20,9 @@ from twilio.twiml.messaging_response import MessagingResponse
 
 
 def predict():
-    BTC_Ticker = yf.Ticker("BTC-USD")
+    ticker = yf.Ticker("ALGO-ETH")
     period = 30
-    df = BTC_Ticker.history(interval = "1d", period=f"{period}d")
+    df = ticker.history(interval = "1d", period=f"{period}d")
     df = df[['Close']]
     dataset = df.values
     dataset = dataset.astype('float32')
@@ -31,7 +34,7 @@ def predict():
         shutil.rmtree('images/')
     os.mkdir('images/')
 
-    model = load_model('weights-BTC.h5')
+    model = load_model('weights-ALGO-ETH.h5')
     time_step = 15
 
     x_input=dataset[len(dataset)-time_step:].reshape(1,-1)
@@ -77,11 +80,6 @@ def predict():
     last_original_days_value[0:time_step+1] = scaler.inverse_transform(dataset[len(dataset)-time_step:]).reshape(1,-1).tolist()[0]
     next_predicted_days_value[time_step+1:] = scaler.inverse_transform(np.array(lst_output).reshape(-1,1)).reshape(1,-1).tolist()[0]
 
-    new_pred_plot = pd.DataFrame({
-        'last_original_days_value':last_original_days_value,
-        'next_predicted_days_value':next_predicted_days_value
-    })
-
     names = cycle([f'Last {time_step} hours close price', f'Predicted next {pred_days} hours close price'])
 
     lstmdf=dataset.tolist()
@@ -102,11 +100,14 @@ def predict():
     fig.update_yaxes(showgrid=False)
     fig.write_image("images/pred.png")
 
-
-
-# predict()
+    return np.array(lstmdf)
 
 app = Flask(__name__)
+
+account_sid = os.environ['TWILIO_ACCOUNT_SID']
+auth_token = os.environ['TWILIO_AUTH_TOKEN']
+client = Client(account_sid, auth_token)
+
 
 @app.route('/uploads/<path:filename>')
 def download_file(filename):
@@ -118,15 +119,15 @@ def sms_reply():
 
     body = request.values.get('Body', None)
 
-    response = MessagingResponse()
-
     if body == '!predict':
-        predict()
-        with response.message() as message:
-            message.body = "{0}".format("Welcome to Mars.")
-            message.media('https://rich-gobbler-hopefully.ngrok-free.app/uploads/{}'.format('pred.png'))
-
-    return str(response)
+        preds = predict()
+        message = client.messages \
+            .create(
+                 body=f'Predictions\n\n Best day for Algo to Eth: \n{np.argmax(preds)} days from now \n Conversion: {preds.max()} \n\nBest day for Eth to Algo: \n{np.argmin(preds)} days from now\n Conversion: {preds.min()}',
+                 from_='+18442608697',
+                 media_url='https://rich-gobbler-hopefully.ngrok-free.app/uploads/{}'.format('pred.png'),
+                 to='+18482189972'
+             )
 
 if __name__ == "__main__":
     app.run(port=8000, debug=False)

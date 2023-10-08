@@ -18,7 +18,7 @@ from plotly.subplots import make_subplots
 
 import yfinance as yf
 
-BTC_Ticker = yf.Ticker("ETH-USD")
+BTC_Ticker = yf.Ticker("ALGO-ETH")
 df = BTC_Ticker.history(period="max")
 close_stock = df.copy().reset_index()
 print(close_stock.info())
