@@ -8,6 +8,8 @@ from keras.models import load_model
 from sklearn.preprocessing import MinMaxScaler
 
 import os
+import plotly.graph_objects as go
+
 import shutil
 
 from flask import Flask, request, send_from_directory
@@ -16,7 +18,8 @@ from twilio.twiml.messaging_response import MessagingResponse
 
 def predict():
     BTC_Ticker = yf.Ticker("BTC-USD")
-    df = BTC_Ticker.history(interval = "1d", period="30d")
+    period = 30
+    df = BTC_Ticker.history(interval = "1d", period=f"{period}d")
     df = df[['Close']]
     dataset = df.values
     dataset = dataset.astype('float32')
@@ -81,28 +84,15 @@ def predict():
 
     names = cycle([f'Last {time_step} hours close price', f'Predicted next {pred_days} hours close price'])
 
-    color_sequence = ['blue' if xi <= time_step else 'red' for xi in new_pred_plot.index]
-    print(color_sequence)
-    fig = px.line(new_pred_plot,x=new_pred_plot.index, y=[new_pred_plot['last_original_days_value'],
-                                                          new_pred_plot['next_predicted_days_value']],
-                  labels={'value': 'Stock price','index': 'Timestamp'}, color=color_sequence)
-    fig.update_layout(title_text=f'Compare last {time_step} days vs next {pred_days} hours',
-                      plot_bgcolor='white', font_size=15, font_color='black',legend_title_text='Close Price')
-
-
-
-    fig.for_each_trace(lambda t:  t.update(name = next(names)))
-    fig.update_xaxes(showgrid=True)
-    fig.update_yaxes(showgrid=True)
-    fig.write_image("images/pred.png")
-
     lstmdf=dataset.tolist()
     lstmdf.extend((np.array(lst_output).reshape(-1,1)).tolist())
     lstmdf=scaler.inverse_transform(lstmdf).reshape(1,-1).tolist()[0]
 
     names = cycle(['Close price'])
 
-    fig = px.line(lstmdf,labels={'value': 'Stock price','index': 'Timestamp'})
+
+    fig = px.line(x=list(range(-period, pred_days)), y=lstmdf,labels={'value': 'Stock price','index': 'Timestamp'})
+    fig.add_vline(x=0, line_width=3, line_dash="dash", line_color="green")
     fig.update_layout(title_text='Plotting whole closing stock price with prediction',
                       plot_bgcolor='white', font_size=15, font_color='black',legend_title_text='Stock')
 
@@ -110,33 +100,33 @@ def predict():
 
     fig.update_xaxes(showgrid=False)
     fig.update_yaxes(showgrid=False)
-    fig.write_image("images/predWithHist.png")
+    fig.write_image("images/pred.png")
 
-predict()
 
-# app = Flask(__name__)
 
-# @app.route('/uploads/<path:filename>')
-# def download_file(filename):
-#     return send_from_directory('images',
-#                                filename, as_attachment=True)
+# predict()
 
-# @app.route("/sms", methods=['GET', 'POST'])
-# def sms_reply():
+app = Flask(__name__)
 
-#     body = request.values.get('Body', None)
+@app.route('/uploads/<path:filename>')
+def download_file(filename):
+    return send_from_directory('images',
+                               filename, as_attachment=True)
 
-#     response = MessagingResponse()
+@app.route("/sms", methods=['GET', 'POST'])
+def sms_reply():
 
-#     # Determine the right reply for this message
-#     print(body)
+    body = request.values.get('Body', None)
 
-#     if body == '!predict':
-#         with response.message() as message:
-#             message.body = "{0}".format("Welcome to Mars.")
-#             message.media('https://rich-gobbler-hopefully.ngrok-free.app/uploads/{}'.format('pred.png'))
+    response = MessagingResponse()
 
-#     return str(response)
+    if body == '!predict':
+        predict()
+        with response.message() as message:
+            message.body = "{0}".format("Welcome to Mars.")
+            message.media('https://rich-gobbler-hopefully.ngrok-free.app/uploads/{}'.format('pred.png'))
 
-# if __name__ == "__main__":
-#     app.run(port=8000, debug=False)
+    return str(response)
+
+if __name__ == "__main__":
+    app.run(port=8000, debug=False)
