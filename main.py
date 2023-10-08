@@ -1,24 +1,23 @@
 import os
+import json
+import uuid
+import base64
 import shutil
+import requests
+import http.client
+
 import numpy as np
 import yfinance as yf
 import plotly.express as px
+
+from Crypto.PublicKey import RSA
+from Crypto.Hash import SHA256
+from Crypto.Cipher import PKCS1_OAEP
 
 from twilio.rest import Client
 from keras.models import load_model
 from flask import Flask, request, send_from_directory
 from sklearn.preprocessing import MinMaxScaler
-
-import http.client
-import requests
-import json
-import uuid
-import codecs
-
-from Crypto.PublicKey import RSA
-from Crypto.Cipher import PKCS1_OAEP
-from Crypto.Hash import SHA256
-import base64
 
 def predict():
     ticker = yf.Ticker("GAS-ETH")
