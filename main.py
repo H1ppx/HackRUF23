@@ -9,6 +9,9 @@ from keras.models import load_model
 from flask import Flask, request, send_from_directory
 from sklearn.preprocessing import MinMaxScaler
 
+import http.client
+import requests
+
 def predict():
     ticker = yf.Ticker("GAS-ETH")
     period = 30
@@ -104,9 +107,61 @@ def sms_reply():
         preds = predict()
         message = client.messages \
             .create(
-                 body=f'Predictions\n\n Best day for Algo to Eth: \n{np.argmax(preds)} days from now \n Conversion: {preds.max()} \n\nBest day for Eth to Algo: \n{np.argmin(preds)} days from now\n Conversion: {preds.min()}',
+                 body=f'Predictions\n\n Best day for ethereum gas: \n{np.argmin(preds)} days from now \n Estimated Rate: {preds.min()}',
                  from_='+18442608697',
                  media_url='https://rich-gobbler-hopefully.ngrok-free.app/uploads/{}'.format('pred.png'),
+                 to='+18482189972'
+             )
+
+    elif body == '!balance':
+        conn = http.client.HTTPSConnection("api.circle.com")
+
+        headers = {
+            'Content-Type': "application/json",
+            'Authorization': f"Bearer {os.environ['CIRCLE_API_KEY']}"
+        }
+
+        conn.request("GET", f"/v1/w3s/wallets/{os.environ['WALLET_1_ID']}/balances", headers=headers)
+        res = conn.getresponse()
+        data = res.read()
+
+        message = client.messages \
+            .create(
+                 body=f'{data.decode("utf-8")}',
+                 from_='+18442608697',
+                 to='+18482189972'
+             )
+
+    elif body == '!transfer':
+        url = "https://api.circle.com/v1/w3s/transactions/transfer/estimateFee"
+
+        payload = {
+            "amounts": ["10"],
+            "destinationAddress": os.environ['WALLET_2_ADDRESS'],
+            "sourceAddress": os.environ['WALLET_1_ADDRESS'],
+            "tokenId": os.environ['SAMPLE_ETH_TOKEN_ID']
+        }
+        headers = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "authorization": f"Bearer {os.environ['CIRCLE_API_KEY']}"
+        }
+
+        response = requests.post(url, json=payload, headers=headers)
+
+        parsed_data = response.json()
+        low_max_fee = parsed_data['data']['low']['maxFee']
+        medium_max_fee = parsed_data['data']['medium']['maxFee']
+        high_max_fee = parsed_data['data']['high']['maxFee']
+
+        # Print the maxFee values
+        print("Low Max Fee:", low_max_fee)
+        print("Medium Max Fee:", medium_max_fee)
+        print("High Max Fee:", high_max_fee)
+        message = client.messages \
+            .create(
+                 body=f'Transfer\n\nEstimated Gas:\nLow Max Fee:{low_max_fee}\nLow Max Fee:{medium_max_fee}\nLow Max Fee:{high_max_fee}\n\nConfirm?\n\nFunctionality NOT finished',
+                 from_='+18442608697',
                  to='+18482189972'
              )
 
